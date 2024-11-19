@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 from streamlit_sortables import sort_items
-from player import Player
-from distribution import distribute_players
+from team_balancer import balance_teams
 from pdf_generator import create_pdf
+from utils import get_team_color
 
 
 def main():
@@ -32,51 +32,38 @@ def main():
 
         # Bouton de génération
         if st.button("Générer les équipes"):
-            # Préparation des joueurs
+            # Préparation des données
             players = []
             non_disponibles = []
 
             for _, row in df.iterrows():
-                player = Player(
-                    prénom=row["prénom"], poste=row["poste"], niveau=row["niveau"]
-                )
+                player_data = {
+                    "prénom": row["prénom"],
+                    "poste": row["poste"],
+                    "niveau": row["niveau"],
+                }
 
                 if row["présence"] == "X":
-                    players.append(player)
+                    players.append(player_data)
                 else:
-                    non_disponibles.append(
-                        {
-                            "prénom": row["prénom"],
-                            "poste": row["poste"],
-                            "niveau": row["niveau"],
-                        }
-                    )
+                    non_disponibles.append(player_data)
 
             # Distribution des joueurs
-            distributed_teams = distribute_players(players, num_teams, num_subteams)
+            balanced_teams = balance_teams(players, num_teams, num_subteams)
 
-            # Formatage des données pour le composant sortable
+            # Préparation des données pour sortables
             sortable_teams = {}
-            for team in distributed_teams:
-                team_name = f"Équipe {team.team_id + 1}"
-                sortable_teams[team_name] = []
+            for i, team in enumerate(balanced_teams):
+                team_name = f"Équipe {i+1}"
+                sortable_teams[team_name] = [
+                    {
+                        "label": f"{p['prénom']} ({p['poste']}) - Niveau: {p['niveau']}",
+                        "value": p,
+                    }
+                    for p in team
+                ]
 
-                for subteam in team.subteams:
-                    sortable_teams[team_name].extend(
-                        [
-                            {
-                                "label": f"{p.prénom} ({p.poste}) - Niveau: {p.niveau}",
-                                "value": {
-                                    "prénom": p.prénom,
-                                    "poste": p.poste,
-                                    "niveau": p.niveau,
-                                },
-                            }
-                            for p in subteam
-                        ]
-                    )
-
-            # Ajout des non disponibles
+            # Ajout des indisponibles
             sortable_teams["Indisponibles"] = [
                 {
                     "label": f"{p['prénom']} ({p['poste']}) - Niveau: {p['niveau']}",
@@ -92,26 +79,24 @@ def main():
         if hasattr(st.session_state, "sortable_teams"):
             st.header("Réorganisation des équipes")
 
-            # Utilisation du composant sortables
+            # Utilisation du composant sortables (version modifiée)
             sorted_teams = sort_items(
-                st.session_state.sortable_teams,
-                title="Glissez et déposez les joueurs",
-                multi_select=True,
+                st.session_state.sortable_teams, multi_select=True
             )
 
             # Bouton de mise à jour
             if st.button("Mettre à jour les équipes"):
                 # Traitement des équipes triées
                 updated_teams = {}
-                non_disponibles = []
+                updated_non_disponibles = []
 
                 for team_name, players in sorted_teams.items():
                     if team_name == "Indisponibles":
-                        non_disponibles = [p["value"] for p in players]
+                        updated_non_disponibles = [p["value"] for p in players]
                     else:
-                        updated_teams[team_name] = {}
-                        # Regroupement par sous-équipes (par exemple, 2 sous-équipes)
+                        # Regroupement par sous-équipes
                         subteam_size = len(players) // num_subteams
+                        updated_teams[team_name] = {}
                         for i in range(num_subteams):
                             start = i * subteam_size
                             end = start + subteam_size
@@ -121,11 +106,11 @@ def main():
 
                 # Mise à jour des états de session
                 st.session_state.teams = updated_teams
-                st.session_state.non_disponibles = non_disponibles
+                st.session_state.non_disponibles = updated_non_disponibles
 
                 st.success("Équipes mises à jour !")
 
-            # Affichage des statistiques
+            # Affichage des équipes
             if st.session_state.teams:
                 for team_name, subteams in st.session_state.teams.items():
                     st.subheader(team_name)
