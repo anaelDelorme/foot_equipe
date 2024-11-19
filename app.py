@@ -7,7 +7,7 @@ from utils import get_team_color
 import json
 import copy
 
-st.set_page_config(page_title="Foot Répartition Equipe", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="FCE Répartition Equipe", page_icon="⚽")
 
 
 def get_draggable_list(team_data, non_disponibles):
@@ -155,7 +155,7 @@ def get_draggable_list(team_data, non_disponibles):
 
 
 def main():
-    st.title("Répartiteur d'équipes")
+    st.title("⚽ Répartiteur d'équipes")
 
     # Initialisation des états de session
     if "initial_teams" not in st.session_state:
@@ -174,7 +174,7 @@ def main():
             "Nombre de sous-équipes par équipe", min_value=1, max_value=5, value=2
         )
 
-        if st.button("Générer les équipes"):
+        if st.button("🚀 Générer les équipes"):
             players = []
             non_disponibles = []
             for index, row in df.iterrows():
@@ -247,14 +247,14 @@ def main():
                     st.error("Erreur de décodage des données d'équipe")
 
             # Générer le PDF avec les données actuelles
-            if st.button("Générer le PDF"):
+            if st.button("⏳ Générer le PDF"):
                 create_pdf(
                     st.session_state.current_teams,
                     st.session_state.current_non_disponibles,
                 )
                 with open("teams.pdf", "rb") as file:
                     st.download_button(
-                        label="Télécharger le PDF des équipes",
+                        label="✅ Télécharger le PDF des équipes",
                         data=file,
                         file_name="teams.pdf",
                         mime="application/pdf",
