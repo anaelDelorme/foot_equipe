@@ -1,11 +1,11 @@
 # pdf_generator.py
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
 from utils import get_team_color
-
+import os
 
 def create_pdf(teams, non_disponibles):
     """
@@ -20,8 +20,9 @@ def create_pdf(teams, non_disponibles):
         topMargin=0.5 * inch,
         bottomMargin=0.5 * inch,
     )
+  #  os.write(1, f"Mes teams sont {teams} !".encode())
 
-    # Calculer le nombre maximum de joueurs pour dimensionner le tableau
+    # Identifier le nombre maximum de joueurs
     max_players = max(
         len(players) for team in teams.values() for players in team.values()
     )
@@ -29,13 +30,12 @@ def create_pdf(teams, non_disponibles):
     # Préparer les données
     data = []
 
-    # Créer les en-têtes des sous-équipes 1
+    # Créer les en-têtes des sous-équipes
     headers_1 = []
     for i in range(len(teams)):
         team_name, _ = get_team_color(i, len(teams))
         simple_name = team_name.replace("Équipe ", "").capitalize()
         headers_1.append(f"{simple_name} 1")
-    headers_1.append("Non disponibles")
     data.append(headers_1)
 
     # Remplir les données des joueurs de la sous-équipe 1
@@ -46,8 +46,6 @@ def create_pdf(teams, non_disponibles):
                 row.append(team[1][i]["prénom"])
             else:
                 row.append("")
-        # Ajouter un espace pour les non disponibles
-        row.append("")
         data.append(row)
 
     # Créer les en-têtes des sous-équipes 2
@@ -56,7 +54,6 @@ def create_pdf(teams, non_disponibles):
         team_name, _ = get_team_color(i, len(teams))
         simple_name = team_name.replace("Équipe ", "").capitalize()
         headers_2.append(f"{simple_name} 2")
-    headers_2.append("Non disponibles")
     data.append(headers_2)
 
     # Remplir les données des joueurs de la sous-équipe 2
@@ -67,12 +64,9 @@ def create_pdf(teams, non_disponibles):
                 row.append(team[2][i]["prénom"])
             else:
                 row.append("")
-        # Ajouter les non disponibles
-        if i < len(non_disponibles):
-            row.append(non_disponibles[i]["prénom"])
-        else:
-            row.append("")
         data.append(row)
+        
+    
 
     # Créer le tableau
     col_width = (A4[1] - inch) / (len(teams) + 1)
@@ -135,4 +129,25 @@ def create_pdf(teams, non_disponibles):
     styles.append(("LINEBELOW", (0, max_players), (-1, max_players), 1, colors.black))
 
     table.setStyle(TableStyle(styles))
-    doc.build([table])
+
+    # Section pour les joueurs non disponibles
+    stylesheets = getSampleStyleSheet()
+    non_disponibles_section = [
+        Spacer(1, 0.5 * inch),
+        Paragraph("<b>Joueuses non disponibles :</b>", stylesheets["Heading3"]),
+    ]
+
+    if non_disponibles:
+        non_disponibles_text = "<br/>".join(
+            joueur["prénom"] for joueur in non_disponibles
+        )
+        non_disponibles_section.append(
+            Paragraph(non_disponibles_text, stylesheets["BodyText"])
+        )
+    else:
+        non_disponibles_section.append(
+            Paragraph("Aucun joueur non disponible.", stylesheets["BodyText"])
+        )
+
+    # Générer le PDF
+    doc.build([table] + non_disponibles_section)
