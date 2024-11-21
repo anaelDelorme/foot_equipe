@@ -138,7 +138,13 @@ def distribute_players(
 
         # Évaluer l'équilibre des niveaux entre équipes
         team_levels = [team.get_average_level() for team in teams]
+        team_level_sums = [team.get_total_level() for team in teams]
+
+        # Pénalité basée sur la moyenne des niveaux
         score += calculate_level_penalty(team_levels)
+        
+        # Nouvelle pénalité basée sur la somme totale des niveaux
+        score += calculate_level_penalty(team_level_sums) * 0.5 
 
         # Récupérer tous les niveaux de sous-équipes
         all_subteam_levels = []

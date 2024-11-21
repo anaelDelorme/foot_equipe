@@ -90,15 +90,15 @@ def get_draggable_list(team_data, non_disponibles):
                     
                     const subteamAverage = playerCount > 0 ? subteamTotal / playerCount : 0;
                     subteam.querySelector('.subteam-average').textContent = 
-                        `Moyenne: ${subteamAverage.toFixed(2)}`;
+                        `Total: ${Math.round(subteamTotal)} - Moyenne: ${subteamAverage.toFixed(2)}`;
                     
                     teamTotal += subteamTotal;
                     teamPlayerCount += playerCount;
                 });
                 
                 const teamAverage = teamPlayerCount > 0 ? teamTotal / teamPlayerCount : 0;
-                                teamBox.querySelector('.team-average').textContent = 
-                    `Moyenne: ${teamAverage.toFixed(2)}`;
+                teamBox.querySelector('.team-average').textContent = 
+                    `Total: ${Math.round(teamTotal)} - Moyenne: ${teamAverage.toFixed(2)}`;
             }
         });
     }

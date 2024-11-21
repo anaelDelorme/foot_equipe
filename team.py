@@ -15,6 +15,12 @@ class Team:
             return 0
         return sum(p.niveau for p in all_players) / len(all_players)
 
+    def get_total_level(self) -> float:
+        all_players = [p for subteam in self.subteams for p in subteam]
+        if not all_players:
+            return 0
+        return sum(p.niveau for p in all_players)
+
     def get_subteam_average_level(self, subteam_id: int) -> float:
         if not self.subteams[subteam_id]:
             return 0
