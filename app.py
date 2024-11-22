@@ -6,6 +6,7 @@ from pdf_generator import create_pdf
 from utils import get_team_color
 import json
 import copy
+from streamlit.components.v1 import html
 
 st.set_page_config(page_title="FCE Répartition Equipe", page_icon="⚽")
 
@@ -134,7 +135,9 @@ def get_draggable_list(team_data, non_disponibles):
         calculateAverages();
         
         // Envoi direct à Streamlit
-        window.Streamlit.setComponentValue(teamData);
+        if (window.Streamlit) {
+            window.Streamlit.setComponentValue(JSON.stringify(teamData));
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -214,51 +217,64 @@ def main():
             st.session_state.current_non_disponibles = non_disponibles
 
         # Gestion des équipes modifiables
-        if hasattr(st.session_state, "current_teams"):
-            # Utilisation du composant HTML avec gestion des modifications
-            draggable_component = st.components.v1.html(
-                get_draggable_list(
-                    st.session_state.current_teams,
-                    st.session_state.current_non_disponibles,
-                ),
-                height=600,
-                scrolling=True,
+           # Gestion des équipes modifiables
+    if "current_teams" in st.session_state:
+        # Créer un conteneur pour les données
+        team_data_container = st.container()
+        
+        # Utilisation du composant HTML avec gestion des modifications
+        draggable_component = html(
+            get_draggable_list(
+                st.session_state.current_teams,
+                st.session_state.current_non_disponibles,
+            ),
+            height=600,
+            scrolling=True,
+        )
+
+        # Communication JavaScript-Streamlit
+        component_value = st.session_state.get("component_value", None)
+        
+        html(
+            """
+            <script>
+            // Attendre que Streamlit soit prêt
+            if (window.Streamlit) {
+                window.addEventListener('message', function(event) {
+                    if (event.origin !== window.location.origin) return;
+                    window.Streamlit.setComponentValue(event.data);
+                });
+            }
+            </script>
+            """,
+            height=0
+        )
+
+        # Traitement des mises à jour
+        if component_value is not None:
+            try:
+                updated_teams = json.loads(component_value)
+                st.session_state.current_teams = updated_teams["teams"]
+                st.session_state.current_non_disponibles = updated_teams["non_disponibles"]
+                st.experimental_rerun()
+            except json.JSONDecodeError as e:
+                st.error(f"Erreur lors de la mise à jour des équipes : {str(e)}")
+            except Exception as e:
+                st.error(f"Une erreur inattendue s'est produite : {str(e)}")
+
+        # Générer le PDF avec les données actuelles
+        if st.button("⏳ Générer le PDF"):
+            create_pdf(
+                st.session_state.current_teams,
+                st.session_state.current_non_disponibles,
             )
-
-            # Récupération des modifications via le composant
-            team_changes = st.experimental_get_query_params()
-
-            if team_changes:
-                try:
-                    # Convertir les paramètres de requête en données utilisables
-                    updated_teams = json.loads(team_changes.get("teams", ["{}"])[0])
-                    updated_non_disponibles = json.loads(
-                        team_changes.get("non_disponibles", ["[]"])[0]
-                    )
-
-                    # Mettre à jour les données de session
-                    st.session_state.current_teams = updated_teams
-                    st.session_state.current_non_disponibles = updated_non_disponibles
-
-                    # Forcer un rechargement
-                    st.experimental_rerun()
-
-                except json.JSONDecodeError:
-                    st.error("Erreur de décodage des données d'équipe")
-
-            # Générer le PDF avec les données actuelles
-            if st.button("⏳ Générer le PDF"):
-                create_pdf(
-                    st.session_state.current_teams,
-                    st.session_state.current_non_disponibles,
+            with open("teams.pdf", "rb") as file:
+                st.download_button(
+                    label="✅ Télécharger le PDF des équipes",
+                    data=file,
+                    file_name="teams.pdf",
+                    mime="application/pdf",
                 )
-                with open("teams.pdf", "rb") as file:
-                    st.download_button(
-                        label="✅ Télécharger le PDF des équipes",
-                        data=file,
-                        file_name="teams.pdf",
-                        mime="application/pdf",
-                    )
 
 
 if __name__ == "__main__":
