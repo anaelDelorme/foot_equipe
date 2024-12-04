@@ -6,155 +6,101 @@ from pdf_generator import create_pdf
 from utils import get_team_color
 import json
 import copy
-from streamlit.components.v1 import html
+from streamlit_sortables import sort_items
+import random
+import io
 
 st.set_page_config(page_title="FCE Répartition Equipe", page_icon="⚽")
 
 
-def get_draggable_list(team_data, non_disponibles):
-    teams_html = """
-    <div class="teams-container" style="display: flex; flex-wrap: wrap; gap: 20px;">
-    """
+def generate_random_data(num_players=20):
+    prenoms = [
+        "Alice",
+        "Béatrice",
+        "Clara",
+        "Diane",
+        "Élodie",
+        "Fanny",
+        "Gisèle",
+        "Hélène",
+        "Isabelle",
+        "Jade",
+        "Karine",
+        "Léa",
+        "Mélanie",
+        "Nathalie",
+        "Océane",
+        "Pascale",
+        "Quentin",
+        "Roxane",
+        "Sophie",
+        "Tatiana",
+        "Ursula",
+        "Valérie",
+        "Wendy",
+        "Xavier",
+        "Yasmine",
+        "Zoé",
+    ]
+    postes = ["G", "Def", "Mill", "Ailier", "Att"]
+    niveaux = [1, 2, 3, 4]
+    presences = ["X", ""]
 
-    for team_name in team_data.keys():
-        team_color = get_team_color(
-            list(team_data.keys()).index(team_name), len(team_data)
-        )[1]
-
-        teams_html += f"""
-        <div class="team-box" style="border: 2px solid {team_color}; padding: 10px; min-width: 200px;">
-            <h3 style="color: {team_color}"><span class="team-name">{team_name}</span> (<span class="team-average">Calcul en cours...</span>)</h3>
-        """
-
-        for subteam_num, players in team_data[team_name].items():
-            teams_html += f"""
-            <div class="subteam" id="{team_name}-{subteam_num}" 
-                 style="border: 1px solid #eee; margin: 10px; padding: 5px;">
-                <h4>Sous-équipe {subteam_num} (<span class="subteam-average">Calcul en cours...</span>)</h4>
-                <ul class="sortable-list" style="min-height: 50px; list-style: none; padding: 0;">
-            """
-
-            for player in players:
-                teams_html += f"""
-                <li class="sortable-item" data-player='{json.dumps(player)}' 
-                    style="padding: 5px; margin: 2px; background: #f0f0f0; cursor: move;">
-                    {player['prénom']} ({player['poste']}) - Niveau: {player['niveau']}
-                </li>
-                """
-
-            teams_html += """
-                </ul>
-            </div>
-            """
-
-        teams_html += "</div>"
-
-    teams_html += """
-    <div class="team-box" style="border: 2px solid #808080; padding: 10px; min-width: 200px;">
-        <h3 style="color: #808080">Indisponibles</h3>
-        <ul class="sortable-list" style="min-height: 50px; list-style: none; padding: 0;">
-    """
-
-    for player in non_disponibles:
-        teams_html += f"""
-        <li class="sortable-item" data-player='{json.dumps(player)}' 
-            style="padding: 5px; margin: 2px; background: #f0f0f0; cursor: move;">
-            {player['prénom']} ({player['poste']}) - Niveau: {player['niveau']}
-        </li>
-        """
-
-    teams_html += """
-        </ul>
-    </div>
-    </div>
-    """
-
-    # Script JavaScript amélioré avec calcul des moyennes et mise à jour en temps réel
-    teams_html += """
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
-    <script>
-    function calculateAverages() {
-        document.querySelectorAll('.team-box').forEach(teamBox => {
-            if (!teamBox.querySelector('h3').textContent.includes('Indisponibles')) {
-                let teamTotal = 0;
-                let teamPlayerCount = 0;
-                
-                teamBox.querySelectorAll('.subteam').forEach(subteam => {
-                    let subteamTotal = 0;
-                    let playerCount = 0;
-                    
-                    subteam.querySelectorAll('.sortable-item').forEach(item => {
-                        const player = JSON.parse(item.getAttribute('data-player'));
-                        subteamTotal += player.niveau;
-                        playerCount += 1;
-                    });
-                    
-                    const subteamAverage = playerCount > 0 ? subteamTotal / playerCount : 0;
-                    subteam.querySelector('.subteam-average').textContent = 
-                        `Total: ${Math.round(subteamTotal)} - Moyenne: ${subteamAverage.toFixed(2)}`;
-                    
-                    teamTotal += subteamTotal;
-                    teamPlayerCount += playerCount;
-                });
-                
-                const teamAverage = teamPlayerCount > 0 ? teamTotal / teamPlayerCount : 0;
-                teamBox.querySelector('.team-average').textContent = 
-                    `Total: ${Math.round(teamTotal)} - Moyenne: ${teamAverage.toFixed(2)}`;
-            }
-        });
+    data = {
+        "prénom": [random.choice(prenoms) for _ in range(num_players)],
+        "poste": [random.choice(postes) for _ in range(num_players)],
+        "niveau": [random.choice(niveaux) for _ in range(num_players)],
+        "présence": [random.choice(presences) for _ in range(num_players)],
     }
+    return pd.DataFrame(data)
 
-    function updateTeams() {
-        const teamData = {teams: {}, non_disponibles: []};
-        
-        document.querySelectorAll('.team-box').forEach(teamBox => {
-            const teamNameEl = teamBox.querySelector('.team-name');
-            if (!teamNameEl) {
-                // Boîte des indisponibles
-                teamBox.querySelectorAll('.sortable-item').forEach(item => {
-                    teamData.non_disponibles.push(JSON.parse(item.getAttribute('data-player')));
-                });
-            } else {
-                const teamName = teamNameEl.textContent;
-                teamData.teams[teamName] = {};
-                
-                teamBox.querySelectorAll('.subteam').forEach(subteam => {
-                    const subteamNum = parseInt(subteam.id.split('-')[1]);
-                    teamData.teams[teamName][subteamNum] = [];
-                    
-                    subteam.querySelectorAll('.sortable-item').forEach(item => {
-                        teamData.teams[teamName][subteamNum].push(
-                            JSON.parse(item.getAttribute('data-player'))
-                        );
-                    });
-                });
+
+def transform_data(team_data, non_disponibles):
+    original_items = []
+
+    # Ajouter les équipes
+    for team_index, (team_name, subteams) in enumerate(team_data.items()):
+        color_name, _ = get_team_color(team_index, len(team_data))
+        for subteam_id, players in subteams.items():
+            header = f"{color_name} - {subteam_id}"
+            items = [
+                f"{player['prénom']} ({player['poste']}, {player['niveau']})"
+                for player in players
+            ]
+            original_items.append({"header": header, "items": items})
+
+    # Ajouter les joueurs non disponibles
+    if non_disponibles:
+        header = "Non disponibles"
+        items = [
+            f"{player['prénom']} ({player['poste']}, {player['niveau']})"
+            for player in non_disponibles
+        ]
+        original_items.append({"header": header, "items": items})
+
+    return original_items
+
+
+def calculate_stats(team_data):
+    stats = {}
+    for team_name, subteams in team_data.items():
+        team_levels = []  # Liste des niveaux pour toute l'équipe
+        stats[team_name] = {}
+        for subteam_id, players in subteams.items():
+            levels = [player["niveau"] for player in players]
+            stats[team_name][subteam_id] = {
+                "sum": sum(levels),
+                "average": sum(levels) / len(levels) if levels else 0,
+                "total_players": len(players),
             }
-        });
-        
-        // Mettre à jour les moyennes
-        calculateAverages();
-        
-        // Envoi direct à Streamlit
-        if (window.Streamlit) {
-            window.Streamlit.setComponentValue(JSON.stringify(teamData));
+            team_levels.extend(levels)
+
+        stats[team_name]["team"] = {
+            "sum": sum(team_levels),
+            "average": sum(team_levels) / len(team_levels) if team_levels else 0,
+            "total_players": len(team_levels),
         }
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const lists = document.querySelectorAll('.sortable-list');
-        lists.forEach(list => {
-            new Sortable(list, {
-                group: 'shared',
-                animation: 150,
-                onEnd: updateTeams
-            });
-        });
-        
-        calculateAverages();
-    });
-    </script>
-    """
-    return teams_html
+    return stats
 
 
 def main():
@@ -165,6 +111,22 @@ def main():
         st.session_state.initial_teams = None
     if "initial_non_disponibles" not in st.session_state:
         st.session_state.initial_non_disponibles = None
+    if "team_data" not in st.session_state:
+        st.session_state.team_data = None
+
+    # Bouton pour télécharger un modèle de fichier Excel
+    if st.button("Générer un modèle de fichier Excel"):
+        df = generate_random_data()
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            df.to_excel(writer, sheet_name="Modèle", index=False)
+            writer.close()  # Utiliser close au lieu de save
+        st.download_button(
+            label="Télécharger le modèle",
+            data=buffer,
+            file_name="modele_excel.xlsx",
+            mime="application/vnd.ms-excel",
+        )
 
     uploaded_file = st.file_uploader("Choisis un fichier Excel", type=["xlsx"])
     if uploaded_file:
@@ -217,64 +179,86 @@ def main():
             st.session_state.current_non_disponibles = non_disponibles
 
         # Gestion des équipes modifiables
-           # Gestion des équipes modifiables
-    if "current_teams" in st.session_state:
-        # Créer un conteneur pour les données
-        team_data_container = st.container()
-        
-        # Utilisation du composant HTML avec gestion des modifications
-        draggable_component = html(
-            get_draggable_list(
-                st.session_state.current_teams,
-                st.session_state.current_non_disponibles,
-            ),
-            height=600,
-            scrolling=True,
-        )
-
-        # Communication JavaScript-Streamlit
-        component_value = st.session_state.get("component_value", None)
-        
-        html(
-            """
-            <script>
-            // Attendre que Streamlit soit prêt
-            if (window.Streamlit) {
-                window.addEventListener('message', function(event) {
-                    if (event.origin !== window.location.origin) return;
-                    window.Streamlit.setComponentValue(event.data);
-                });
-            }
-            </script>
-            """,
-            height=0
-        )
-
-        # Traitement des mises à jour
-        if component_value is not None:
-            try:
-                updated_teams = json.loads(component_value)
-                st.session_state.current_teams = updated_teams["teams"]
-                st.session_state.current_non_disponibles = updated_teams["non_disponibles"]
-                st.experimental_rerun()
-            except json.JSONDecodeError as e:
-                st.error(f"Erreur lors de la mise à jour des équipes : {str(e)}")
-            except Exception as e:
-                st.error(f"Une erreur inattendue s'est produite : {str(e)}")
-
-        # Générer le PDF avec les données actuelles
-        if st.button("⏳ Générer le PDF"):
-            create_pdf(
-                st.session_state.current_teams,
-                st.session_state.current_non_disponibles,
+        if "current_teams" in st.session_state:
+            # Transformer les données pour streamlit-sortables
+            original_items = transform_data(
+                st.session_state.current_teams, st.session_state.current_non_disponibles
             )
-            with open("teams.pdf", "rb") as file:
-                st.download_button(
-                    label="✅ Télécharger le PDF des équipes",
-                    data=file,
-                    file_name="teams.pdf",
-                    mime="application/pdf",
+
+            # Utilisation du composant streamlit-sortables
+            updated_items = sort_items(original_items, multi_containers=True)
+
+            if updated_items:
+                # Reconvertir les données en format d'origine
+                new_team_data = {}
+                non_disponibles = []
+
+                for item in updated_items:
+                    header = item["header"]
+                    items = item["items"]
+
+                    if "Non disponibles" in header:
+                        for player_str in items:
+                            prénom, poste_niveau = player_str.split(" (")
+                            poste, niveau = poste_niveau.rstrip(")").split(", ")
+                            non_disponibles.append(
+                                {
+                                    "prénom": prénom,
+                                    "poste": poste,
+                                    "niveau": int(niveau),
+                                }
+                            )
+                    else:
+                        team_name, subteam_id = header.split(" - ")
+                        if team_name not in new_team_data:
+                            new_team_data[team_name] = {}
+                        new_team_data[team_name][int(subteam_id)] = []
+                        for player_str in items:
+                            prénom, poste_niveau = player_str.split(" (")
+                            poste, niveau = poste_niveau.rstrip(")").split(", ")
+                            new_team_data[team_name][int(subteam_id)].append(
+                                {
+                                    "prénom": prénom,
+                                    "poste": poste,
+                                    "niveau": int(niveau),
+                                }
+                            )
+
+                st.session_state.current_teams = new_team_data
+                st.session_state.current_non_disponibles = non_disponibles
+
+            # Afficher les statistiques
+            stats = calculate_stats(st.session_state.current_teams)
+            st.write("Statistiques des équipes:")
+            for team_name, subteams in stats.items():
+                team_stats = subteams.pop("team")
+                st.write(
+                    f"**{team_name}** : "
+                    f"{team_stats['total_players']} joueuses - "
+                    f"Moyenne : {team_stats['average']:.1f} - "
+                    f"Total : {team_stats['sum']}"
                 )
+                for subteam_id, stat in subteams.items():
+                    st.write(
+                        f"Sous-équipe {subteam_id} : "
+                        f"{stat['total_players']} joueuses - "
+                        f"Moyenne : {stat['average']:.1f} - "
+                        f"Total : {stat['sum']}"
+                    )
+
+            # Générer le PDF avec les données actuelles
+            if st.button("⏳ Générer le PDF"):
+                create_pdf(
+                    st.session_state.current_teams,
+                    st.session_state.current_non_disponibles,
+                )
+                with open("teams.pdf", "rb") as file:
+                    st.download_button(
+                        label="✅ Télécharger le PDF des équipes",
+                        data=file,
+                        file_name="teams.pdf",
+                        mime="application/pdf",
+                    )
 
 
 if __name__ == "__main__":
